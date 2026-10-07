@@ -2,16 +2,15 @@ import os
 import logging
 from threading import Thread
 from flask import Flask
-from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
+from telegram import Update, InlineQueryResultArticle, InputTextMessageContent
+from telegram.ext import ApplicationBuilder, ContextTypes, InlineQueryHandler, CommandHandler
 
-# Настройка логирования
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
-# Создаем простой веб-сервер для Render, чтобы он не выдавал ошибку деплоя
+# Веб-сервер для поддержки статуса Live на Render
 app_flask = Flask('')
 
 @app_flask.route('/')
@@ -21,26 +20,38 @@ def home():
 def run_web():
     app_flask.run(host='0.0.0.0', port=10000)
 
-# Логика Telegram бота
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Отправь мне название песни, и я найду текст и музыку для караоке.")
+    await update.message.reply_text("Привет! Напиши в любом чате @имя_твоего_бота и название песни, чтобы найти текст!")
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    await update.message.reply_text(f"Ищу песню и текст по твоему запросу: «{text}»...")
+# Функция инлайн-поиска (работает в любых чатах и с друзьями)
+async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.inline_query.query
+    if not query:
+        return
+
+    results = [
+        InlineQueryResultArticle(
+            id=query,
+            title=f"Караоке: {query}",
+            input_message_content=InputTextMessageContent(
+                message_text=f"🎵 Текст и музыка для песни: *{query}* \n\n(Здесь скоро будет текст песни и караоке)",
+                parse_mode="Markdown"
+            ),
+            description=f"Найти текст и музыку для '{query}'"
+        )
+    ]
+    await update.inline_query.answer(results)
 
 def main():
-    # Запускаем веб-сервер в отдельном потоке
     server_thread = Thread(target=run_web)
     server_thread.start()
 
-    # Токен твоего бота
     TOKEN = "8733379913:AAE2gHOI8Vjqf_THYz83dyuK62hxTIN4R_c"
     
     app = ApplicationBuilder().token(TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(InlineQueryHandler(inline_query))
 
     print("Бот запущен...")
     app.run_polling()
