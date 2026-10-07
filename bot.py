@@ -10,7 +10,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# Веб-сервер для поддержки статуса Live на Render
+# Веб-сервер для Render
 app_flask = Flask('')
 
 @app_flask.route('/')
@@ -21,26 +21,37 @@ def run_web():
     app_flask.run(host='0.0.0.0', port=10000)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Напиши в любом чате @имя_твоего_бота и название песни, чтобы найти текст!")
+    await update.message.reply_text("Привет! Бот готов к работе в чатах через инлайн-режим.")
 
-# Функция инлайн-поиска (работает в любых чатах и с друзьями)
 async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.inline_query.query
+    
+    # Если ничего не введено, выдаем базовую подсказку
     if not query:
-        return
-
-    results = [
-        InlineQueryResultArticle(
-            id=query,
-            title=f"Караоке: {query}",
-            input_message_content=InputTextMessageContent(
-                message_text=f"🎵 Текст и музыка для песни: *{query}* \n\n(Здесь скоро будет текст песни и караоке)",
-                parse_mode="Markdown"
-            ),
-            description=f"Найти текст и музыку для '{query}'"
-        )
-    ]
-    await update.inline_query.answer(results)
+        results = [
+            InlineQueryResultArticle(
+                id="help",
+                title="Введите название песни",
+                input_message_content=InputTextMessageContent(
+                    message_text="Напишите после @Muzachik_bot название песни, чтобы найти караоке."
+                ),
+                description="Например: Леди Баг или Моника"
+            )
+        ]
+    else:
+        results = [
+            InlineQueryResultArticle(
+                id=query,
+                title=f"Найти: {query}",
+                input_message_content=InputTextMessageContent(
+                    message_text=f"🎵 Запрос на песню: *{query}*",
+                    parse_mode="Markdown"
+                ),
+                description=f"Нажми, чтобы отправить запрос: {query}"
+            )
+        ]
+        
+    await update.inline_query.answer(results, cache_time=1)
 
 def main():
     server_thread = Thread(target=run_web)
