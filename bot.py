@@ -2,15 +2,12 @@ import os
 import logging
 from threading import Thread
 from flask import Flask
-from telegram import Update, InlineQueryResultArticle, InputTextMessageContent
-from telegram.ext import ApplicationBuilder, ContextTypes, InlineQueryHandler, CommandHandler
+from telegram import Update
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+logging.basicConfig(level=logging.INFO)
 
-# Веб-сервер для Render
+# Flask-сервер для поддержания статуса Live на Render
 app_flask = Flask('')
 
 @app_flask.route('/')
@@ -21,50 +18,24 @@ def run_web():
     app_flask.run(host='0.0.0.0', port=10000)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Бот готов к работе в чатах через инлайн-режим.")
+    await update.message.reply_text("Привет! Отправь мне название песни, и я найду ее для караоке.")
 
-async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.inline_query.query
-    
-    # Если ничего не введено, выдаем базовую подсказку
-    if not query:
-        results = [
-            InlineQueryResultArticle(
-                id="help",
-                title="Введите название песни",
-                input_message_content=InputTextMessageContent(
-                    message_text="Напишите после @Muzachik_bot название песни, чтобы найти караоке."
-                ),
-                description="Например: Леди Баг или Моника"
-            )
-        ]
-    else:
-        results = [
-            InlineQueryResultArticle(
-                id=query,
-                title=f"Найти: {query}",
-                input_message_content=InputTextMessageContent(
-                    message_text=f"🎵 Запрос на песню: *{query}*",
-                    parse_mode="Markdown"
-                ),
-                description=f"Нажми, чтобы отправить запрос: {query}"
-            )
-        ]
-        
-    await update.inline_query.answer(results, cache_time=1)
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    song_name = update.message.text
+    await update.message.reply_text(f"🎵 Ищу песню: {song_name}\n(Скоро здесь появится результат)")
 
 def main():
-    server_thread = Thread(target=run_web)
-    server_thread.start()
-
+    # Запускаем веб-сервер в отдельном потоке
+    Thread(target=run_web).start()
+    
+    # Твой токен бота
     TOKEN = "8733379913:AAE2gHOI8Vjqf_THYz83dyuK62hxTIN4R_c"
     
     app = ApplicationBuilder().token(TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(InlineQueryHandler(inline_query))
-
-    print("Бот запущен...")
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    
     app.run_polling()
 
 if __name__ == '__main__':
