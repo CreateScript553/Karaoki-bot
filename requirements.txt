@@ -1,2 +1,4 @@
 python-telegram-bot==21.10
 httpx
+python-telegram-bot
+flask
